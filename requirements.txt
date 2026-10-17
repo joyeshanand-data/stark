@@ -1,0 +1,20 @@
+# Required
+requests
+wikipedia
+pyttsx3
+SpeechRecognition
+sounddevice
+numpy
+psutil
+ddgs
+
+# Optional - Stark runs fine without these, just with fewer features:
+# - opencv-python: camera face-detection + voice-triggered "scan my face"/"scan the room"
+# - langdetect: automatic spoken-language detection
+# - cryptography: HTTPS for the local server (needed for camera/mic from other devices on your WiFi)
+opencv-python
+langdetect
+cryptography
+
+# tkinter is NOT installed via pip - it ships with most Python installs.
+# If "import tkinter" fails on Linux: sudo apt install python3-tk

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stark Mini</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { width:100%; height:100%; background:#05090f; font-family: var(--font-main), monospace; color:#d6f2fb; overflow:hidden; }
+  body { display:flex; flex-direction:column; }
+  .bar {
+    display:flex; align-items:center; justify-content:space-between; padding:8px 10px; flex-shrink:0;
+    border-bottom:1px solid rgba(0,217,255,0.28); background: rgba(6,14,24,0.85);
+  }
+  .brand { font-family:'Orbitron', monospace; font-size:12px; letter-spacing:0.3em; color:#00d9ff; font-weight:900; }
+  .bar-right { display:flex; align-items:center; gap:8px; }
+  .brain-chip { font-size:9px; letter-spacing:0.08em; opacity:0.85; display:flex; align-items:center; gap:5px; }
+  .dot { width:6px; height:6px; border-radius:50%; background:#2fe08a; box-shadow:0 0 5px #2fe08a; animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .mini-new-btn {
+    font-size:9px; letter-spacing:0.06em; padding:3px 7px; border:1px solid #b388ff; border-radius:8px;
+    color:#b388ff; background: rgba(179,136,255,0.08); cursor:pointer; text-transform:uppercase;
+  }
+  .core-mini {
+    width:34px; height:34px; border-radius:50%; flex-shrink:0; margin:8px auto 0;
+    background: radial-gradient(circle at 50% 38%, #f2feff, rgba(0,217,255,0.4) 55%, rgba(0,90,130,0.6) 78%);
+    box-shadow: 0 0 16px 4px rgba(0,217,255,0.28); animation: breathe 4s ease-in-out infinite;
+  }
+  .core-mini.speaking { animation: talk 0.5s ease-in-out infinite; }
+  .core-mini.thinking { animation: think 1.1s ease-in-out infinite; box-shadow:0 0 22px 6px #b388ff; }
+  .core-mini.listening { box-shadow:0 0 20px 6px rgba(255,150,40,0.6); }
+  @keyframes breathe { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+  @keyframes talk { 0%,100%{transform:scale(1);} 50%{transform:scale(1.22);} }
+  @keyframes think { 0%,100%{transform:scale(1) rotate(0deg);} 50%{transform:scale(1.1) rotate(10deg);} }
+
+  .log { flex:1; min-height:0; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:7px; }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,217,255,0.28); border-radius:3px; }
+  .bubble { max-width:85%; padding:6px 10px; font-size:12px; line-height:1.4; border-radius:2px; }
+  .bubble.user { align-self:flex-end; background: rgba(0,182,230,0.16); border:1px solid rgba(0,217,255,0.28); color:#7cf5ff; }
+  .bubble.assistant { align-self:flex-start; background: rgba(179,136,255,0.10); border:1px solid rgba(179,136,255,0.32); }
+  .bubble.typing { display:flex; gap:4px; align-items:center; padding:8px 12px; }
+  .tdot { width:4px; height:4px; border-radius:50%; background:#b388ff; opacity:0.5; animation:tp 1s ease-in-out infinite; }
+  .tdot:nth-child(2){animation-delay:.15s;} .tdot:nth-child(3){animation-delay:.3s;}
+  @keyframes tp { 0%,100%{opacity:.3; transform:scale(.8);} 50%{opacity:1; transform:scale(1.1);} }
+  .empty { margin:auto; font-size:11px; opacity:0.5; text-align:center; }
+
+  .row { display:flex; gap:6px; padding:8px; border-top:1px solid rgba(0,217,255,0.28); flex-shrink:0; }
+  input {
+    flex:1; background: rgba(10,20,32,0.65); border:1px solid rgba(0,217,255,0.28); color:#d6f2fb;
+    font-family: var(--font-main), monospace; font-size:12px; padding:7px 9px; outline:none;
+  }
+  input:focus { border-color:#00d9ff; }
+  button {
+    background: rgba(0,182,230,0.12); border:1px solid #00d9ff; color:#00d9ff; font-size:14px;
+    padding:6px 10px; cursor:pointer; border-radius:2px;
+  }
+  button.listening { background: rgba(255,150,40,0.25); border-color:#ff9628; color:#ff9628; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">STARK</div>
+    <div class="bar-right">
+      <div class="brain-chip"><span class="dot"></span><span id="chip">MEMORY: 0</span></div>
+      <div class="mini-new-btn" id="miniNewChat" title="Start a new chat">+ New</div>
+    </div>
+  </div>
+  <div class="core-mini" id="core"></div>
+  <div class="log" id="log"><div class="empty">Say something...</div></div>
+  <div class="row">
+    <input id="cmd" type="text" placeholder="Talk to Stark..." autocomplete="off">
+    <button id="send">&#9654;</button>
+    <button id="mic">&#127908;</button>
+  </div>
+
+<script>
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+let lastSig = null, lastLive = '', lastState = {};
+
+function render(history, liveAnswer, thinking, question) {
+  let html = '';
+  if (!history.length && !liveAnswer && !thinking) {
+    html = '<div class="empty">Say something...</div>';
+  } else {
+    html = history.map(h => '<div class="bubble ' + (h.role==='user'?'user':'assistant') + '">' + esc(h.content) + '</div>').join('');
+    const lastIsCurrent = history.length && history[history.length-1].role==='assistant' && history[history.length-1].content===liveAnswer;
+    if (liveAnswer && !lastIsCurrent) {
+      if (!history.length || history[history.length-1].content !== question) html += '<div class="bubble user">' + esc(question) + '</div>';
+      html += '<div class="bubble assistant">' + esc(liveAnswer) + '</div>';
+    } else if (thinking) {
+      if (!history.length || history[history.length-1].content !== question) html += '<div class="bubble user">' + esc(question) + '</div>';
+      html += '<div class="bubble assistant typing"><span class="tdot"></span><span class="tdot"></span><span class="tdot"></span></div>';
+    }
+  }
+  if (html === lastSig) return;
+  lastSig = html;
+  const log = document.getElementById('log');
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+  log.innerHTML = html;
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+async function pollHistory() {
+  try {
+    const r = await fetch('/history'); const d = await r.json();
+    render(d.history || [], lastLive, !!lastState.thinking, lastState.question || '');
+  } catch(e) {}
+}
+setInterval(pollHistory, 1000);
+
+async function pollState() {
+  try {
+    const r = await fetch('/state'); const d = await r.json();
+    lastState = d; lastLive = d.answer || '';
+    document.getElementById('chip').textContent = 'MEM ' + (d.memory_count || 0) + ' - LEARNED ' + (d.learned_count || 0);
+    const core = document.getElementById('core');
+    core.classList.toggle('speaking', !!d.speaking);
+    core.classList.toggle('listening', !!d.listening);
+    core.classList.toggle('thinking', !!d.thinking);
+    const mic = document.getElementById('mic');
+    mic.classList.toggle('listening', !!d.listening);
+    mic.disabled = !!d.listening;
+  } catch(e) {}
+}
+setInterval(pollState, 500);
+pollState();
+
+async function send() {
+  const input = document.getElementById('cmd');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try { await fetch('/command', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text}) }); } catch(e) {}
+}
+document.getElementById('send').addEventListener('click', send);
+document.getElementById('cmd').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+document.getElementById('mic').addEventListener('click', async () => {
+  try { await fetch('/listen', { method:'POST' }); } catch(e) {}
+});
+document.getElementById('miniNewChat').addEventListener('click', async () => {
+  try { await fetch('/sessions/new', { method: 'POST' }); } catch (e) {}
+  lastSig = null; lastLive = '';
+  document.getElementById('log').innerHTML = '<div class="empty">Say something...</div>';
+  pollHistory();
+});
+</script>
+</body>
+</html>
